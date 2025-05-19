@@ -1,0 +1,138 @@
+services:
+  # Prometheus: Metrics storage and querying
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./config/prometheus.yaml:/etc/prometheus/prometheus.yml:ro,Z
+      - prometheus:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - traefik
+
+  # Grafana: Visualization and dashboarding
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    volumes:
+      #- grafana:/var/lib/grafana
+      - ./config/grafana.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro,Z
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.grafana.rule=Host(`grafana.lan`)
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.tls=true
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+    networks:
+      - traefik
+
+  # Tempo: Distributed tracing
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    restart: unless-stopped
+    volumes:
+      - ./config/tempo.yaml:/etc/tempo/tempo.yaml:ro,Z
+    command: -config.file=/etc/tempo/tempo.yaml
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3200/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - traefik
+
+  # Loki: Log aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    volumes:
+      - ./config/loki.yaml:/etc/loki/loki.yaml:ro,Z
+    command: -config.file=/etc/loki/loki.yaml
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - traefik
+
+  # Promtail: Log shipping to Loki
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro,Z
+      - ./config/promtail.yaml:/etc/promtail/config.yaml:ro,Z
+    command: -config.file=/etc/promtail/config.yaml
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:9080/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - traefik
+
+  # Pyroscope: Continuous profiling
+  pyroscope:
+    image: grafana/pyroscope:latest
+    container_name: pyroscope
+    restart: unless-stopped
+    volumes:
+      - ./config/pyroscope.yaml:/etc/pyroscope/config.yaml:ro,Z
+      - pyroscope:/data
+      - pyroscope_compactor:/data-compactor
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:4040/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - traefik
+
+  # OpenTelemetry Collector: Metrics, traces, and logs collection
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: otel-collector
+    restart: unless-stopped
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otel/otel-collector-config.yaml:ro,Z
+    command: --config=/etc/otel/otel-collector-config.yaml
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:13133"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - traefik
+    depends_on:
+      - tempo
+      - loki
+      - prometheus
+
+volumes:
+  prometheus:
+    external: true
+  grafana:
+    external: true
+  pyroscope:
+    external: true
+  pyroscope_compactor:
+    external: true
+
+networks:
+  traefik:
+    external: true

@@ -1,0 +1,84 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    version: 1
+
+  - name: Loki
+    type: loki
+    uid: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: true
+    version: 1
+
+  - name: Pyroscope
+    type: grafana-pyroscope-datasource
+    uid: pyroscope
+    access: proxy
+    url: http://pyroscope:4040
+    isDefault: false
+    editable: true
+    version: 1
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    isDefault: false
+    editable: true
+    version: 1
+    jsonData:
+      httpMethod: GET
+      timeout: 60
+      nodeGraphEnabled: true
+      serviceMap: true
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: true
+        filterBySpanID: false
+        spanStartTimeShift: "0s"
+        spanEndTimeShift: "0s"
+        tags:
+          - key: traceID
+            value: "${__trace.traceId}"
+          - key: service
+            value: "${__span.serviceName}"
+        customQuery: false
+        mappedTimeRange: true
+        query: '{job="${__span.tags.job}"} | traceID="${__trace.traceId}"'
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-2m"
+        spanEndTimeShift: "2m"
+        tags:
+          - key: job
+            value: "${__span.tags.job}"
+          - key: instance
+            value: "${__span.tags.instance}"
+          - key: operation
+            value: "${__span.name}"
+        queries:
+          - name: "Request Rate"
+            query: 'rate(http_requests_total{job="${__span.tags.job}", instance="${__span.tags.instance}"}[5m])'
+          - name: "Error Rate"
+            query: 'rate(http_errors_total{job="${__span.tags.job}", instance="${__span.tags.instance}"}[5m])'
+        customQuery: true
+      tracesToProfiles:
+        datasourceUid: pyroscope
+        tags:
+          - key: service.name
+            value: "${__span.serviceName}"
+          - key: environment
+            value: "${__span.tags.environment}"
+        profileTypeId: "process_cpu"
+        customQuery: false
+        timeRangeShift: "-1m"

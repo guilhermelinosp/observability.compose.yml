@@ -1,0 +1,65 @@
+# Enable streaming over HTTP
+stream_over_http_enabled: true
+
+# Server configuration
+server:
+  http_listen_port: 3200
+
+# Distributor configuration
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:14317"
+        http:
+          endpoint: "0.0.0.0:14318"
+
+# Ingester configuration
+ingester:
+  max_block_duration: 5m
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+
+# Compactor configuration
+compactor:
+  compaction:
+    block_retention: 24h
+
+# Storage configuration
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /tmp/tempo/wal
+    local:
+      path: /tmp/tempo/blocks
+
+# Metrics generator configuration
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: docker-compose
+
+  storage:
+    path: /tmp/tempo/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+
+  traces_storage:
+    path: /tmp/tempo/blocks
+
+  processor:
+    local_blocks:
+      filter_server_spans: false
+      flush_to_storage: true
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics, local-blocks]
+      generate_native_histograms: both
