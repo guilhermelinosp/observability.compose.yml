@@ -5,61 +5,36 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
-  prometheus:
-    config:
-      scrape_configs:
-        - job_name: otel-collector
-          static_configs:
-            - targets: ["localhost:8888"]
-  hostmetrics:
-    collection_interval: 30s
-    scrapers:
-      cpu:
-      memory:
-      disk:
-      network:
 
 processors:
-  batch:
-  memory_limiter:
-    check_interval: 1s
-    limit_mib: 400
-    spike_limit_mib: 100
+  batch: {}
 
 exporters:
+  debug:
+    verbosity: basic # Options: basic, detailed, verbose
   prometheus:
     endpoint: 0.0.0.0:9090
-
   otlp/tempo:
     endpoint: tempo:14317
     tls:
       insecure: true
-
   otlphttp/loki:
-    endpoint: http://loki:3100/loki/otel
+    endpoint: http://loki:3100/loki/api/v1/push
 
 service:
   telemetry:
     logs:
-      level: info
-    metrics:
-      address: 0.0.0.0:8888
-  extensions:
-    - health_check
+      level: debug
   pipelines:
     metrics:
-      receivers: [otlp, prometheus, hostmetrics]
-      processors: [batch, memory_limiter]
-      exporters: [prometheus]
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus, debug]
     traces:
       receivers: [otlp]
-      processors: [batch, memory_limiter]
-      exporters: [otlp/tempo]
+      processors: [batch]
+      exporters: [otlp/tempo, debug]
     logs:
       receivers: [otlp]
-      processors: [batch, memory_limiter]
-      exporters: [otlphttp/loki]
-
-extensions:
-  health_check:
-    endpoint: 0.0.0.0:13133
+      processors: [batch]
+      exporters: [otlphttp/loki, debug]
