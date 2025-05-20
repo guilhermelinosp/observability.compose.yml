@@ -27,10 +27,9 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_SERVER_DOMAIN=grafana.lan
       - GF_SERVER_ROOT_URL=https://grafana.lan
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     volumes:
       - grafana:/var/lib/grafana
-      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro,Z
+      - ./config/grafana.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro,Z
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:3000/api/health"]
       interval: 30s
@@ -42,7 +41,6 @@ services:
       - traefik.http.routers.grafana.rule=Host(`grafana.lan`)
       - traefik.http.routers.grafana.entrypoints=websecure
       - traefik.http.routers.grafana.tls=true
-      - traefik.http.routers.grafana.tls.certresolver=le
       - traefik.http.services.grafana.loadbalancer.server.port=3000
       - traefik.docker.network=traefik
     networks:

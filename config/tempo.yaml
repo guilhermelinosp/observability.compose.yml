@@ -1,6 +1,5 @@
 server:
   http_listen_port: 3200
-  log_level: debug
 distributor:
   receivers:
     otlp:
@@ -9,6 +8,12 @@ distributor:
           endpoint: "0.0.0.0:14317"
         http:
           endpoint: "0.0.0.0:14318"
+ingester:
+  trace_idle_period: 10s
+  max_block_duration: 5m
+compactor:
+  compaction:
+    block_retention: 1h
 storage:
   trace:
     backend: local
@@ -19,5 +24,17 @@ storage:
 metrics_generator:
   storage:
     path: /tmp/tempo/metrics
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors:
+        - service-graphs
+        - span-metrics
+        - local-blocks
+        - span-metrics-count
+        - span-metrics-latency
+        - span-metrics-size
+        - host-info
 
 stream_over_http_enabled: true

@@ -7,34 +7,54 @@ receivers:
         endpoint: 0.0.0.0:4318
 
 processors:
-  batch: {}
+  batch:
 
 exporters:
-  debug:
-    verbosity: basic # Options: basic, detailed, verbose
   prometheus:
     endpoint: 0.0.0.0:9090
+    namespace: otelcol
+    const_labels:
+      service: "otel-collector"
+
   otlp/tempo:
     endpoint: tempo:14317
     tls:
       insecure: true
+    compression: gzip
+
   otlphttp/loki:
     endpoint: http://loki:3100/loki/api/v1/push
 
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+  zpages:
+    endpoint: 0.0.0.0:55679
+
 service:
-  telemetry:
-    logs:
-      level: debug
   pipelines:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [prometheus, debug]
+      exporters: [prometheus]
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlp/tempo, debug]
+      exporters: [otlp/tempo]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlphttp/loki, debug]
+      exporters: [otlphttp/loki]
+
+  extensions: [health_check, pprof, zpages]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: basic
+      address: 0.0.0.0:8888
+    resource:
+      service.name: "otel-collector"
